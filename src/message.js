@@ -8,7 +8,6 @@ bot.on("message", async (msg) => {
   const text = msg.text;
   const contact = msg.contact;
   const chatId = msg.chat.id;
-  console.log(msg);
 
   // Botning "Yozmoqda...", "Video yuklamoqda..." kabi statuslarini chiqarish
   if (msg.video || msg.document) {
