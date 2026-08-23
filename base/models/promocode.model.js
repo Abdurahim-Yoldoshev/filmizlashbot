@@ -1,5 +1,29 @@
 const db = require('../db');
 
+const initPromocodesTable = async () => {
+    try {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS promocodes (
+                code TEXT PRIMARY KEY,
+                amount INTEGER,
+                max_uses INTEGER,
+                current_uses INTEGER DEFAULT 0,
+                created_by TEXT
+            )
+        `);
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS promo_usages (
+                code TEXT,
+                chatId TEXT,
+                PRIMARY KEY (code, chatId)
+            )
+        `);
+        console.log("Promocodes modeli ishga tushdi.");
+    } catch (e) {
+        console.error("Promocodes modeli xatosi:", e.message);
+    }
+};
+
 const getPromocode = async (code) => {
     try {
         const result = await db.execute({
@@ -78,6 +102,7 @@ const deletePromocode = async (code) => {
 };
 
 module.exports = {
+    initPromocodesTable,
     getPromocode,
     createPromocode,
     incrementPromoUses,

@@ -8,12 +8,21 @@ const initSettingsTable = async () => {
                 value TEXT
             )
         `);
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS finance_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL,
+                duration_days INTEGER
+            )
+        `);
         // Insert default card if not exists
         const res = await db.execute({ sql: "SELECT * FROM settings WHERE key = 'payment_card'", args: [] });
         if (res.rows.length === 0) {
             await db.execute({ sql: "INSERT INTO settings (key, value) VALUES (?, ?)", args: ['payment_card', '8600 0000 0000 0000|Karta egasi'] });
         }
-        console.log("Settings modeli ishga tushdi.");
+        console.log("Settings va Finance modellari ishga tushdi.");
     } catch (error) {
         console.error("Settings modeli xatosi:", error);
     }
