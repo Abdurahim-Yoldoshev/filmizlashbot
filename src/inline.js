@@ -64,8 +64,38 @@ let cachedBotUsername = null;
 
 bot.on('inline_query', async (query) => {
     const queryText = query.query.trim();
+    
+    if (!cachedBotUsername) {
+        try {
+            const info = await bot.getMe();
+            cachedBotUsername = info.username;
+        } catch (e) {}
+    }
+    const botUsername = cachedBotUsername || 'kino_bot';
+    
+    // Telegram'ning yuqorida chiqib turadigan maxsus botga yo'naltiruvchi tugmasi
+    const inlineOptions = {
+        cache_time: 0,
+        button: {
+            text: "🎬 Barcha kinolarni ko'rish uchun bosing",
+            start_parameter: "all"
+        }
+    };
+
     if (!queryText) {
-        return bot.answerInlineQuery(query.id, [], { cache_time: 0 }).catch(() => {});
+        const defaultResult = [{
+            type: 'article',
+            id: 'default_search',
+            title: '🔍 Kino yoki serial izlash...',
+            description: "Qidirish uchun kino kodi yoki nomini yozing",
+            input_message_content: { message_text: '🎬 Barcha kinolarni bot ichidan qidirishingiz mumkin.' },
+            reply_markup: {
+                inline_keyboard: [[
+                    { text: '▶️ Botga o\'tish', url: `https://t.me/${botUsername}` }
+                ]]
+            }
+        }];
+        return bot.answerInlineQuery(query.id, defaultResult, inlineOptions).catch(() => {});
     }
 
     let movies = [];
@@ -86,16 +116,8 @@ bot.on('inline_query', async (query) => {
         }
     } catch (dbErr) {
         console.error('[Inline] DB xato:', dbErr.message);
-        return bot.answerInlineQuery(query.id, [], { cache_time: 0 }).catch(() => {});
+        return bot.answerInlineQuery(query.id, [], inlineOptions).catch(() => {});
     }
-
-    if (!cachedBotUsername) {
-        try {
-            const info = await bot.getMe();
-            cachedBotUsername = info.username;
-        } catch (e) {}
-    }
-    const botUsername = cachedBotUsername || '';
 
     const results = [];
     for (const item of movies) {
@@ -120,7 +142,7 @@ bot.on('inline_query', async (query) => {
 
     // 1-urinish: asosiy natijalarni yuborib ko'ramiz (rasm/video bilan)
     try {
-        await bot.answerInlineQuery(query.id, finalResults, { cache_time: 0 });
+        await bot.answerInlineQuery(query.id, finalResults, inlineOptions);
     } catch (firstErr) {
         const errMsg = firstErr.response ? JSON.stringify(firstErr.response.body) : firstErr.message;
         console.error('[Inline] 1-urinish xato:', errMsg);
@@ -128,7 +150,7 @@ bot.on('inline_query', async (query) => {
         // 2-urinish: faqat article (rasmsiz, sof matn)
         try {
             const fallback = finalResults.map(r => toArticle(r));
-            await bot.answerInlineQuery(query.id, fallback, { cache_time: 0 });
+            await bot.answerInlineQuery(query.id, fallback, inlineOptions);
             console.log('[Inline] Fallback article bilan muvaffaqiyatli yuborildi');
         } catch (secondErr) {
             console.error('[Inline] 2-urinish ham xato:', secondErr.message);
