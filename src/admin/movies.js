@@ -318,6 +318,24 @@ const handleAddLocalMovieTrailer = async (msg, user) => {
     });
     bot.deleteMessage(chatId, msg.message_id).catch(()=>{});
 
+    // @filmlarbuluti kanaliga traylerni yuborib, xabar linkini saqlaymiz
+    const TRAILER_CHANNEL = process.env.TRAILER_CHANNEL || '@filmlarbuluti';
+    try {
+        let forwarded = null;
+        try { forwarded = await bot.forwardMessage(TRAILER_CHANNEL, chatId, msg.message_id); } catch(e) {}
+        if (!forwarded) { try { forwarded = await bot.copyMessage(TRAILER_CHANNEL, chatId, msg.message_id); } catch(e) {} }
+        
+        if (forwarded && forwarded.message_id) {
+            const channelUsername = TRAILER_CHANNEL.replace('@', '');
+            const trailerUrl = `https://t.me/${channelUsername}/${forwarded.message_id}`;
+            const { updateMovieTrailerUrl } = require('../../base/models/movies.model');
+            await updateMovieTrailerUrl(code, trailerUrl);
+            console.log(`[Trailer] ${code} uchun trailer_url saqlandi: ${trailerUrl}`);
+        }
+    } catch (e) {
+        console.error('[Trailer] Kanalga yuborishda xato:', e.message);
+    }
+
     const { getMovie } = require('../../base/models/movies.model');
     const existingMovie = await getMovie(code);
 

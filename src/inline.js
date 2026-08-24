@@ -31,19 +31,16 @@ function cleanCaption(text) {
 }
 
 
-// "Treller" so'zini o'rtada joylashtirib, 👉👈 bilan to'ldiradi
-// Telegram xabar kengligiga moslashtirilgan (taxminan 32 ta belgi)
-function buildTrellerHeader() {
-    const word = ' Treller ';
-    const totalWidth = 32; // Telegramda ko'rinadigan taxminiy kenglik
-    const sideCount = Math.floor((totalWidth - word.length) / 2);
-    const left = '👉'.repeat(Math.max(1, sideCount));
-    const right = '👈'.repeat(Math.max(1, sideCount));
-    return `${left}${word}${right}`;
+// "Treller" — agar trailerUrl bo'lsa HTML link, bo'lmasa oddiy matn
+function buildTrellerHeader(trailerUrl) {
+    if (trailerUrl) {
+        return `<a href="${trailerUrl}">🎬 Treller</a>`;
+    }
+    return `🎬 Treller`;
 }
 
-function buildCaptionText(type, code, plain) {
-    const header = buildTrellerHeader();
+function buildCaptionText(type, code, plain, trailerUrl) {
+    const header = buildTrellerHeader(trailerUrl);
     const prefix = type === 'movie'
         ? `${header}\n\n🎬 Kodi: ${code}\n\n`
         : `${header}\n\n📺 Kodi: ${code}\n\n`;
@@ -167,7 +164,9 @@ function buildResult(item, type, botUsername) {
         label = item.title || (m ? m[1].trim() : `Serial ${code}`);
     }
 
-    const captionText = buildCaptionText(type, code, plain);
+    // trailer_url ni HTML link sifatida ishlatamiz
+    const trailerUrl = item.trailer_url || null;
+    const captionText = buildCaptionText(type, code, plain, trailerUrl);
     const shortCaption = captionText.length > 1024 ? captionText.substring(0, 1020) + '...' : captionText;
     const inline_keyboard = [[
         { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername || 'kino_bot'}?start=${code}` }
@@ -175,7 +174,6 @@ function buildResult(item, type, botUsername) {
 
     // 1-prioritet: poster_url (Asilmedia yoki boshqa global manbadan kelgan URL)
     if (item.poster_url && item.poster_url.startsWith('http')) {
-        // WebP URL ni JPEG ga o'girib yuborib ko'ramiz
         const imgUrl = toJpegUrl(item.poster_url);
         return {
             type: 'photo',
@@ -185,6 +183,7 @@ function buildResult(item, type, botUsername) {
             title: `${icon} ${label}`,
             description: `Kod: ${code}`,
             caption: shortCaption,
+            parse_mode: 'HTML',
             reply_markup: { inline_keyboard }
         };
     }
@@ -198,18 +197,22 @@ function buildResult(item, type, botUsername) {
             title: `${icon} ${label}`,
             description: `Kod: ${code}`,
             caption: shortCaption,
+            parse_mode: 'HTML',
             reply_markup: { inline_keyboard }
         };
     }
 
-    // 3-prioritet: rasm/video yo'q bo'lsa — Treller yozuvi bilan chiroyli article
-    const header = buildTrellerHeader();
+    // 3-prioritet: rasm/video yo'q bo'lsa — Treller havolali article
     return {
         type: 'article',
         id: `${type}_${code}_article`,
         title: `${icon} ${label}`,
-        description: `${header}  •  Kod: ${code}`,
-        input_message_content: { message_text: captionText.substring(0, 4096) },
+        description: trailerUrl ? `🎬 Treller mavjud  •  Kod: ${code}` : `Kod: ${code} • Tomosha qilish uchun bosing`,
+        input_message_content: {
+            message_text: captionText.substring(0, 4096),
+            parse_mode: 'HTML'
+        },
         reply_markup: { inline_keyboard }
     };
 }
+

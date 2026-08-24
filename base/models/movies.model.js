@@ -22,6 +22,7 @@ const initMoviesTable = async () => {
         try { await db.execute(`ALTER TABLE movies ADD COLUMN channel_file_id TEXT`); } catch (e) {}
         try { await db.execute(`ALTER TABLE movies ADD COLUMN channel_file_type TEXT`); } catch (e) {}
         try { await db.execute(`ALTER TABLE movies ADD COLUMN poster_url TEXT`); } catch (e) {}
+        try { await db.execute(`ALTER TABLE movies ADD COLUMN trailer_url TEXT`); } catch (e) {}
         console.log("Movies modeli ishga tushdi.");
     } catch (error) {
         console.error("Movies modeli xatosi:", error);
@@ -205,6 +206,22 @@ const updateMoviePosterUrl = async (code, poster_url) => {
     }
 };
 
+/**
+ * Kino uchun trailer_url ni yangilash (@filmlarbuluti kanal linki)
+ */
+const updateMovieTrailerUrl = async (code, trailer_url) => {
+    try {
+        await db.execute({
+            sql: `UPDATE movies SET trailer_url = ? WHERE code = ?`,
+            args: [trailer_url, code]
+        });
+        return true;
+    } catch (error) {
+        console.error("Kino trailer_url yangilashda xato:", error);
+        return false;
+    }
+};
+
 module.exports = {
     initMoviesTable,
     addMovie,
@@ -214,5 +231,6 @@ module.exports = {
     updateMovie,
     updateMovieChannelInfo,
     updateMoviePosterUrl,
+    updateMovieTrailerUrl,
     searchMoviesByName
 };
