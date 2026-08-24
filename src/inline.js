@@ -9,8 +9,8 @@ function safeCaption(text) {
 
 function buildCaptionText(type, code, plain) {
     const prefix = type === 'movie'
-        ? `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n`
-        : `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n`;
+        ? `👉👉👉 Treller 👈👈👈\n\n🎬 Kodi: ${code}\n\n`
+        : `👉👉👉 Treller 👈👈👈\n\n📺 Kodi: ${code}\n\n`;
     const suffix = type === 'movie'
         ? `\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`
         : `\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
