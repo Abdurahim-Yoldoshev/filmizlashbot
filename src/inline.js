@@ -120,6 +120,24 @@ bot.on('inline_query', async (query) => {
     }
 
     const results = [];
+
+    // Har doim birinchi bo'lib chiqadigan kanal reklamasi (Article)
+    results.push({
+        type: 'article',
+        id: 'channel_promo',
+        title: "🎬 Barcha kinolar va seriallar",
+        description: "@filmlarbuluti kanaliga o'tish uchun bosing",
+        input_message_content: {
+            message_text: "🎬 <b>Barcha kinolar va seriallarni maxsus kanalimizdan topishingiz va tomosha qilishingiz mumkin!</b>",
+            parse_mode: 'HTML'
+        },
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "▶️ Kanalga o'tish", url: "https://t.me/filmlarbuluti" }]
+            ]
+        }
+    });
+
     for (const item of movies) {
         try {
             results.push(buildResult(item, 'movie', botUsername));
