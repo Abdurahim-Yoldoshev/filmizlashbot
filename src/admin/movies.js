@@ -168,6 +168,16 @@ const handleAddAutoMovieFile = async (msg, user) => {
     const success = await addMovie(file_id, file_unique_id, tmdbData.poster_url, customCode, tmdbData.caption);
 
     if (success) {
+        // Asilmedia rasm qidirish va bazaga saqlash
+        const { searchAsilmediaPoster } = require('../helper/asilmedia');
+        const { updateMoviePosterUrl } = require('../../base/models/movies.model');
+        const titleMatch = tmdbData.caption ? tmdbData.caption.match(/Kino nomi:\s*(.+)/) : null;
+        if (titleMatch) {
+            searchAsilmediaPoster(titleMatch[1].trim()).then(posterUrl => {
+                if (posterUrl) updateMoviePosterUrl(customCode, posterUrl);
+            });
+        }
+
         await bot.sendMessage(chatId, `✅ <b>${customCode}</b> ID li kino muvaffaqiyatli saqlandi!`, {
             parse_mode: "HTML",
             reply_markup: {
@@ -358,6 +368,16 @@ const handleAddMovieFile = async (msg, user) => {
     bot.deleteMessage(chatId, msg.message_id).catch(()=>{});
     
     if (success) {
+        // Asilmedia rasm qidirish va bazaga saqlash
+        const { searchAsilmediaPoster } = require('../helper/asilmedia');
+        const { updateMoviePosterUrl } = require('../../base/models/movies.model');
+        const titleMatch = caption ? caption.match(/Kino nomi:\s*(.+)/) : null;
+        if (titleMatch) {
+            searchAsilmediaPoster(titleMatch[1].trim()).then(posterUrl => {
+                if (posterUrl) updateMoviePosterUrl(code, posterUrl);
+            });
+        }
+
         await bot.sendMessage(chatId, `✅ <b>${code}</b> ID li kino bazaga muvaffaqiyatli saqlandi!\n\n${caption}`, {
             parse_mode: "HTML",
             reply_markup: {

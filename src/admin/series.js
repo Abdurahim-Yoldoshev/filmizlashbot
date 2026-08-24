@@ -180,6 +180,16 @@ const handleAutoLoadSeries = async (chatId, tmdbId, customCode, messageId) => {
 
     const success = await addSeries(customCode, tmdbData.poster_url, tmdbData.caption);
     if (success) {
+        // Asilmedia rasm qidirish va bazaga saqlash
+        const { searchAsilmediaPoster } = require('../helper/asilmedia');
+        const { updateSeriesPosterUrl } = require('../../base/models/series.model');
+        const titleMatch = tmdbData.caption ? tmdbData.caption.match(/Serial nomi:\s*(.+)/) : null;
+        if (titleMatch) {
+            searchAsilmediaPoster(titleMatch[1].trim()).then(posterUrl => {
+                if (posterUrl) updateSeriesPosterUrl(customCode, posterUrl);
+            });
+        }
+
         await updateUser(chatId, { action: `admin_add_ep_file_${customCode}_1` });
         await bot.sendMessage(chatId, `🎉 <b>${customCode}</b> ID li serial yaratildi!\n\nEndi ushbu serialning <b>1 - qismini (video yoki fayl)</b> yuboring:`, {
             parse_mode: "HTML",
@@ -261,6 +271,16 @@ const handleAddSeriesDesc = async (msg, user) => {
     bot.deleteMessage(chatId, msg.message_id).catch(()=>{});
     
     if (success) {
+        // Asilmedia rasm qidirish va bazaga saqlash
+        const { searchAsilmediaPoster } = require('../helper/asilmedia');
+        const { updateSeriesPosterUrl } = require('../../base/models/series.model');
+        const titleMatch = caption ? caption.match(/Serial nomi:\s*(.+)/) : null;
+        if (titleMatch) {
+            searchAsilmediaPoster(titleMatch[1].trim()).then(posterUrl => {
+                if (posterUrl) updateSeriesPosterUrl(parseInt(code), posterUrl);
+            });
+        }
+
         await bot.sendMessage(chatId, `✅ <b>Serial muvaffaqiyatli qo'shildi!</b>\n\n🎬 Kodi: <b>${code}</b>\n\nEndi "➕ Qism qo'shish" tugmasi orqali qismlarni qo'shishingiz mumkin.`, {
             parse_mode: "HTML",
             reply_markup: {

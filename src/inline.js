@@ -127,14 +127,15 @@ function buildResult(item, type, botUsername) {
         { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
     ]];
 
-    // trailer_file_id HTTP URL (TMDb poster) bo'lsa — photo tipida
-    const trailerFileId = item.trailer_file_id;
-    if (trailerFileId && typeof trailerFileId === 'string' && trailerFileId.startsWith('http')) {
+    // Avval asilmedia orqali topilgan poster_url, so'ng trailer_file_id (TMDb)
+    let imageUrl = item.poster_url || item.trailer_file_id;
+
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
         return {
             type: 'photo',
             id: `${type}_${code}`,
-            photo_url: trailerFileId,
-            thumb_url: trailerFileId,
+            photo_url: imageUrl,
+            thumb_url: imageUrl,
             title: `${icon} ${label}`,
             description: `Kod: ${code}`,
             caption: captionText.length > 1024 ? captionText.substring(0, 1020) + '...' : captionText,
@@ -152,9 +153,9 @@ function buildResult(item, type, botUsername) {
         reply_markup: { inline_keyboard }
     };
 
-    // Agar HTTP URL treyler bo'lsa thumbnail sifatida qo'shamiz
-    if (trailerFileId && typeof trailerFileId === 'string' && trailerFileId.startsWith('http')) {
-        article.thumbnail_url = trailerFileId;
+    // Agar HTTP URL mavjud bo'lsa thumbnail sifatida qo'shamiz
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+        article.thumbnail_url = imageUrl;
     }
 
     return article;
