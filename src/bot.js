@@ -4,7 +4,7 @@ require('dotenv').config();
 const bot = new TelegramBot(process.env.TOKEN, { 
     polling: {
         params: {
-            allowed_updates: ['message', 'callback_query', 'message_reaction', 'message_reaction_count', 'my_chat_member', 'chat_member', 'channel_post']
+            allowed_updates: ['message', 'callback_query', 'message_reaction', 'message_reaction_count', 'my_chat_member', 'chat_member', 'channel_post', 'inline_query']
         }
     } 
 });
@@ -72,4 +72,5 @@ patchMethod('editMessageReplyMarkup');
 
 module.exports = bot;
 require('./message');
-require('./query');
+require('./query');
+require('./inline');
