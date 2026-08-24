@@ -2,11 +2,17 @@ const bot = require('./bot');
 const { searchMoviesByName, getMovie } = require('../base/models/movies.model');
 const { searchSeriesByName, getSeries } = require('../base/models/series.model');
 
-// Caption dan HTML teglarni tozalab, 900 belgidan qisqa qilamiz
+// Inline cached_* uchun: max 1024 char, HTML tegsiz, 900 dan oshmasin
+function buildCaption(prefix, plain, suffix) {
+    const maxLen = 900;
+    const truncated = plain.length > maxLen ? plain.substring(0, maxLen) + '...' : plain;
+    const full = `${prefix}${truncated}${suffix}`;
+    return full.length > 1024 ? full.substring(0, 1020) + '...' : full;
+}
+
 function safeCaption(text) {
     if (!text) return '';
-    const plain = text.replace(/<[^>]*>/gm, '').trim();
-    return plain.length > 900 ? plain.substring(0, 900) + '...' : plain;
+    return text.replace(/<[^>]*>/gm, '').trim();
 }
 
 let cachedBotUsername = null;
@@ -48,13 +54,22 @@ bot.on('inline_query', async (query) => {
 
     const results = [];
     for (const item of movies) {
-        try { results.push(buildResult(item, 'movie', botUsername)); } catch (e) {}
+        try {
+            results.push(buildResult(item, 'movie', botUsername));
+        } catch (e) {
+            console.error(`[Inline] movie ${item.code} buildResult xato:`, e.message);
+        }
     }
     for (const item of seriesList) {
-        try { results.push(buildResult(item, 'series', botUsername)); } catch (e) {}
+        try {
+            results.push(buildResult(item, 'series', botUsername));
+        } catch (e) {
+            console.error(`[Inline] series ${item.code} buildResult xato:`, e.message);
+        }
     }
 
     console.log(`[Inline] "${queryText}" => ${results.length} natija (${movies.length} kino, ${seriesList.length} serial)`);
+    console.log('[Inline] Natija turlari:', results.map(r => `${r.type}(${r.id})`).join(', '));
 
     bot.answerInlineQuery(query.id, results, { cache_time: 0 })
         .catch(e => {
@@ -66,30 +81,37 @@ bot.on('inline_query', async (query) => {
 function buildResult(item, type, botUsername) {
     const code = item.code;
     const plain = safeCaption(item.caption);
+    const icon = type === 'movie' ? '🎬' : '📺';
 
     let label = '';
-    let captionText = '';
-    const icon = type === 'movie' ? '🎬' : '📺';
+    let prefixText = '';
+    let suffixText = '';
 
     if (type === 'movie') {
         const m = item.caption ? item.caption.match(/Kino nomi:\s*(.+)/) : null;
         label = item.title || (m ? m[1].trim() : `Kino ${code}`);
-        captionText = `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n${plain}\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
+        prefixText = `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n`;
+        suffixText = `\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
     } else {
         const m = item.caption ? item.caption.match(/Serial nomi:\s*(.+)/) : null;
         label = item.title || (m ? m[1].trim() : `Serial ${code}`);
-        captionText = `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n${plain}\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
+        prefixText = `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n`;
+        suffixText = `\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
     }
+
+    const captionText = buildCaption(prefixText, plain, suffixText);
 
     const inline_keyboard = [[
         { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
     ]];
 
-    // 1-ustuvorlik: kanalga yuborilganda saqlangan aniq file_id dan foydalanamiz
+    // 1-ustuvorlik: kanalga yuborilganda saqlangan aniq file_id va turi
     const channelFileId = item.channel_file_id;
     const channelFileType = item.channel_file_type;
 
     if (channelFileId && channelFileType) {
+        console.log(`[Inline] ${type} ${code}: channel_file_type="${channelFileType}", caption=${captionText.length} chars`);
+
         if (channelFileType === 'photo') {
             return {
                 type: 'cached_photo',
@@ -100,7 +122,9 @@ function buildResult(item, type, botUsername) {
                 caption: captionText,
                 reply_markup: { inline_keyboard }
             };
-        } else if (channelFileType === 'video') {
+        }
+
+        if (channelFileType === 'video') {
             return {
                 type: 'cached_video',
                 id: `${type}_${code}`,
