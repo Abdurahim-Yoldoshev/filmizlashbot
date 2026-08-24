@@ -122,7 +122,7 @@ bot.on('inline_query', async (query) => {
     const results = [];
 
     // Har doim birinchi bo'lib chiqadigan kanal reklamasi (Article)
-    results.push({
+    results.unshift({
         type: 'article',
         id: 'channel_promo',
         title: "🎬 Barcha kinolar va seriallar",
