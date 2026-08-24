@@ -1,12 +1,14 @@
 const TelegramBot = require('node-telegram-bot-api');
 require('dotenv').config();
 
+const useWebhook = !!process.env.RENDER_EXTERNAL_URL;
+
 const bot = new TelegramBot(process.env.TOKEN, { 
-    polling: {
+    polling: !useWebhook ? {
         params: {
             allowed_updates: ['message', 'callback_query', 'message_reaction', 'message_reaction_count', 'my_chat_member', 'chat_member', 'channel_post', 'inline_query']
         }
-    } 
+    } : false
 });
 
 bot.on('polling_error', (error) => {

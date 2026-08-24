@@ -24,12 +24,32 @@ const { initSettingsTable } = require('./base/models/settings.model.js');
 app.use(express.json());
 const dev = async () => {
     const PORT = process.env.PORT || 3000;
+    const renderUrl = process.env.RENDER_EXTERNAL_URL;
+    const bot = require('./src/bot');
+
+    if (renderUrl) {
+        // Webhook orqali kelgan so'rovlarni qabul qilish
+        app.post(`/bot${process.env.TOKEN}`, (req, res) => {
+            bot.processUpdate(req.body);
+            res.sendStatus(200);
+        });
+    }
+
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`Server is running on port ${PORT}`);
         
-        // Render bepul tarifida 15 daqiqadan so'ng uxlab qolmasligi uchun Self-Ping
-        const renderUrl = process.env.RENDER_EXTERNAL_URL;
         if (renderUrl) {
+            const webhookUrl = `${renderUrl}/bot${process.env.TOKEN}`;
+            
+            // Webhook o'rnatish
+            bot.setWebHook(webhookUrl, {
+                allowed_updates: ['message', 'callback_query', 'message_reaction', 'message_reaction_count', 'my_chat_member', 'chat_member', 'channel_post', 'inline_query']
+            }).then(() => {
+                console.log(`[Webhook] Muvaffaqiyatli o'rnatildi: ${webhookUrl}`);
+            }).catch(err => {
+                console.error(`[Webhook] O'rnatishda xatolik:`, err.message);
+            });
+
             const axios = require('axios');
             setInterval(() => {
                 axios.get(renderUrl).then(() => {
