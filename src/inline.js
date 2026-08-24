@@ -2,15 +2,12 @@ const bot = require('./bot');
 const { searchMoviesByName, getMovie } = require('../base/models/movies.model');
 const { searchSeriesByName, getSeries } = require('../base/models/series.model');
 
-function safeCaption(itemCaption) {
-    if (!itemCaption) return '';
-    if (itemCaption.length <= 850) return itemCaption;
-    // Tahrirlangan matnda ochilib yopilmagan HTML teglar qolmasligi uchun barcha teglarni olib tashlaymiz
-    let stripped = itemCaption.replace(/<[^>]*>?/gm, '');
-    if (stripped.length > 850) {
-        return stripped.substring(0, 850) + '...';
-    }
-    return stripped;
+// Caption dan HTML teglarni tozalab, 1024 belgidan qisqa qilamiz
+function safeCaption(text) {
+    if (!text) return '';
+    // HTML teglarni olib tashlaymiz — xavfsiz plain text
+    const plain = text.replace(/<[^>]*>/gm, '');
+    return plain.length > 900 ? plain.substring(0, 900) + '...' : plain;
 }
 
 let cachedBotUsername = null;
@@ -18,123 +15,126 @@ let cachedBotUsername = null;
 bot.on('inline_query', async (query) => {
     const text = query.query.trim();
     if (!text) {
-        return bot.answerInlineQuery(query.id, []);
+        return bot.answerInlineQuery(query.id, [], { cache_time: 0 }).catch(() => {});
     }
 
-    const isCode = /^\d+$/.test(text);
     let movies = [];
     let seriesList = [];
 
-    if (isCode) {
-        const code = parseInt(text);
-        const m = await getMovie(code);
-        if (m) movies.push(m);
-        const s = await getSeries(code);
-        if (s) seriesList.push(s);
-    } else {
-        movies = await searchMoviesByName(text);
-        seriesList = await searchSeriesByName(text);
+    try {
+        const isCode = /^\d+$/.test(text);
+        if (isCode) {
+            const code = parseInt(text);
+            const [m, s] = await Promise.all([getMovie(code), getSeries(code)]);
+            if (m) movies.push(m);
+            if (s) seriesList.push(s);
+        } else {
+            [movies, seriesList] = await Promise.all([
+                searchMoviesByName(text),
+                searchSeriesByName(text)
+            ]);
+        }
+    } catch (dbErr) {
+        console.error('[Inline] DB xato:', dbErr.message);
+        return bot.answerInlineQuery(query.id, [], { cache_time: 0 }).catch(() => {});
     }
 
     if (!cachedBotUsername) {
-        const botInfo = await bot.getMe();
-        cachedBotUsername = botInfo.username;
+        try {
+            const botInfo = await bot.getMe();
+            cachedBotUsername = botInfo.username;
+        } catch (e) {
+            console.error('[Inline] getMe xato:', e.message);
+        }
     }
-    const botUsername = cachedBotUsername;
+    const botUsername = cachedBotUsername || '';
 
-    const processItem = async (item, type) => {
+    const buildResult = (item, type) => {
+        const code = item.code;
+        const plain = safeCaption(item.caption);
+
+        let label = '';
         let captionText = '';
-        let title = '';
-        let safeCap = safeCaption(item.caption);
-        
         if (type === 'movie') {
-            captionText = `🔥 <b>YANGI KINO!</b> 🔥\n\n🎬 <b>Kodi:</b> ${item.code}\n\n${safeCap}\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
             const titleMatch = item.caption ? item.caption.match(/Kino nomi:\s*(.+)/) : null;
-            title = item.title || (titleMatch ? titleMatch[1] : `Kino ${item.code}`);
-            title = `🎬 ${title}`;
-        } else if (type === 'series') {
-            captionText = `🔥 <b>YANGI SERIAL!</b> 🔥\n\n📺 <b>Kodi:</b> ${item.code}\n\n${safeCap}\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
+            label = `🎬 ${item.title || (titleMatch ? titleMatch[1].trim() : `Kino ${code}`)}`;
+            captionText = `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n${plain}\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
+        } else {
             const titleMatch = item.caption ? item.caption.match(/Serial nomi:\s*(.+)/) : null;
-            title = item.title || (titleMatch ? titleMatch[1] : `Serial ${item.code}`);
-            title = `📺 ${title}`;
+            label = `📺 ${item.title || (titleMatch ? titleMatch[1].trim() : `Serial ${code}`)}`;
+            captionText = `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n${plain}\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
         }
 
-        const inline_keyboard = [
-            [{ text: "▶️ Tomosha qilish", url: `https://t.me/${botUsername}?start=${item.code}` }]
-        ];
+        const inline_keyboard = [[
+            { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
+        ]];
 
-        // trailer_file_id = poster rasm, file_id = to'liq video
-        // Avval treyler rasmini ishlatishga harakat qilamiz
         const trailerFileId = item.trailer_file_id;
         const mainFileId = item.file_id;
 
-        // 1. Agar treyler file_id mavjud va URL bo'lsa — photo inline
+        // URL rasm bo'lsa (TMDb poster URL)
         if (trailerFileId && trailerFileId.startsWith('http')) {
             return {
                 type: 'photo',
-                id: `${type}_${item.code}`,
+                id: `${type}_${code}`,
                 photo_url: trailerFileId,
                 thumb_url: trailerFileId,
-                title: title,
+                title: label,
+                description: `Kod: ${code}`,
                 caption: captionText,
-                parse_mode: 'HTML',
                 reply_markup: { inline_keyboard }
             };
         }
 
-        // 2. Agar treyler Telegram file_id bo'lsa — cached_photo (treyler asosan photo/video)
+        // Telegram file_id bo'lsa — cached_video (treyler video ham bo'lishi mumkin)
         if (trailerFileId) {
-            // Avval photo sifatida sinab ko'ramiz
             return {
-                type: 'cached_photo',
-                id: `${type}_${item.code}`,
-                photo_file_id: trailerFileId,
-                title: title,
+                type: 'cached_video',
+                id: `${type}_${code}`,
+                video_file_id: trailerFileId,
+                title: label,
+                description: `Kod: ${code}`,
                 caption: captionText,
-                parse_mode: 'HTML',
                 reply_markup: { inline_keyboard }
             };
         }
 
-        // 3. Agar faqat asosiy video file_id mavjud bo'lsa — cached_video
+        // Asosiy video file_id
         if (mainFileId) {
             return {
                 type: 'cached_video',
-                id: `${type}_${item.code}`,
+                id: `${type}_${code}`,
                 video_file_id: mainFileId,
-                title: title,
+                title: label,
+                description: `Kod: ${code}`,
                 caption: captionText,
-                parse_mode: 'HTML',
                 reply_markup: { inline_keyboard }
             };
         }
 
-        // 4. Hech qanday fayl yo'q — faqat matn
+        // Fallback — faqat matn
         return {
             type: 'article',
-            id: `${type}_${item.code}`,
-            title: title,
-            description: `Kod: ${item.code}`,
+            id: `${type}_${code}`,
+            title: label,
+            description: `Kod: ${code}`,
             input_message_content: {
-                message_text: captionText,
-                parse_mode: 'HTML'
+                message_text: captionText
             },
             reply_markup: { inline_keyboard }
         };
     };
 
-    try {
-        let results = [];
-        const moviePromises = movies.map(m => processItem(m, 'movie'));
-        const seriesPromises = seriesList.map(s => processItem(s, 'series'));
-        
-        const resolvedMovies = await Promise.all(moviePromises);
-        const resolvedSeries = await Promise.all(seriesPromises);
-        
-        results = [...resolvedMovies, ...resolvedSeries].filter(r => r !== null);
+    const results = [
+        ...movies.map(m => buildResult(m, 'movie')),
+        ...seriesList.map(s => buildResult(s, 'series'))
+    ];
 
+    console.log(`[Inline] "${text}" => ${results.length} natija (${movies.length} kino, ${seriesList.length} serial)`);
+
+    try {
         await bot.answerInlineQuery(query.id, results, { cache_time: 0 });
     } catch (e) {
-        console.error("Inline query error:", e);
+        console.error('[Inline] answerInlineQuery xato:', e.response ? JSON.stringify(e.response.body) : e.message);
     }
 });
