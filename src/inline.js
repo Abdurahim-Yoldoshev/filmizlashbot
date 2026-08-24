@@ -47,16 +47,11 @@ bot.on('inline_query', async (query) => {
     const botUsername = cachedBotUsername || '';
 
     const results = [];
-
     for (const item of movies) {
-        try {
-            results.push(buildResult(item, 'movie', botUsername));
-        } catch (e) {}
+        try { results.push(buildResult(item, 'movie', botUsername)); } catch (e) {}
     }
     for (const item of seriesList) {
-        try {
-            results.push(buildResult(item, 'series', botUsername));
-        } catch (e) {}
+        try { results.push(buildResult(item, 'series', botUsername)); } catch (e) {}
     }
 
     console.log(`[Inline] "${queryText}" => ${results.length} natija (${movies.length} kino, ${seriesList.length} serial)`);
@@ -74,6 +69,7 @@ function buildResult(item, type, botUsername) {
 
     let label = '';
     let captionText = '';
+    const icon = type === 'movie' ? '🎬' : '📺';
 
     if (type === 'movie') {
         const m = item.caption ? item.caption.match(/Kino nomi:\s*(.+)/) : null;
@@ -85,14 +81,40 @@ function buildResult(item, type, botUsername) {
         captionText = `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n${plain}\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
     }
 
-    const icon = type === 'movie' ? '🎬' : '📺';
     const inline_keyboard = [[
         { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
     ]];
 
-    const trailerFileId = item.trailer_file_id;
+    // 1-ustuvorlik: kanalga yuborilganda saqlangan aniq file_id dan foydalanamiz
+    const channelFileId = item.channel_file_id;
+    const channelFileType = item.channel_file_type;
 
-    // Agar treyler HTTP URL (TMDb poster) bo'lsa — photo sifatida chiqaramiz
+    if (channelFileId && channelFileType) {
+        if (channelFileType === 'photo') {
+            return {
+                type: 'cached_photo',
+                id: `${type}_${code}`,
+                photo_file_id: channelFileId,
+                title: `${icon} ${label}`,
+                description: `Kod: ${code}`,
+                caption: captionText,
+                reply_markup: { inline_keyboard }
+            };
+        } else if (channelFileType === 'video') {
+            return {
+                type: 'cached_video',
+                id: `${type}_${code}`,
+                video_file_id: channelFileId,
+                title: `${icon} ${label}`,
+                description: `Kod: ${code}`,
+                caption: captionText,
+                reply_markup: { inline_keyboard }
+            };
+        }
+    }
+
+    // 2-ustuvorlik: trailer_file_id HTTP URL bo'lsa (TMDb poster)
+    const trailerFileId = item.trailer_file_id;
     if (trailerFileId && trailerFileId.startsWith('http')) {
         return {
             type: 'photo',
@@ -106,9 +128,8 @@ function buildResult(item, type, botUsername) {
         };
     }
 
-    // Boshqa barcha hollarda — article (har doim ishlaydi)
-    // thumbnail_url faqat http URL bo'lganda ishlaydi, shuning uchun mavjud bo'lsa qo'shamiz
-    const articleBase = {
+    // Fallback: article (har doim ishlaydi)
+    return {
         type: 'article',
         id: `${type}_${code}`,
         title: `${icon} ${label}`,
@@ -118,6 +139,4 @@ function buildResult(item, type, botUsername) {
         },
         reply_markup: { inline_keyboard }
     };
-
-    return articleBase;
 }

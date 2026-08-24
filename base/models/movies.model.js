@@ -19,6 +19,8 @@ const initMoviesTable = async () => {
         // try to add file_unique_id and title columns if they don't exist
         try { await db.execute(`ALTER TABLE movies ADD COLUMN file_unique_id TEXT`); } catch (e) {}
         try { await db.execute(`ALTER TABLE movies ADD COLUMN title TEXT`); } catch (e) {}
+        try { await db.execute(`ALTER TABLE movies ADD COLUMN channel_file_id TEXT`); } catch (e) {}
+        try { await db.execute(`ALTER TABLE movies ADD COLUMN channel_file_type TEXT`); } catch (e) {}
         console.log("Movies modeli ishga tushdi.");
     } catch (error) {
         console.error("Movies modeli xatosi:", error);
@@ -170,6 +172,22 @@ const searchMoviesByName = async (query) => {
     }
 };
 
+/**
+ * Kino uchun kanalga yuklangan xabar file_id va turini saqlash
+ */
+const updateMovieChannelInfo = async (code, channel_file_id, channel_file_type) => {
+    try {
+        await db.execute({
+            sql: `UPDATE movies SET channel_file_id = ?, channel_file_type = ? WHERE code = ?`,
+            args: [channel_file_id, channel_file_type, code]
+        });
+        return true;
+    } catch (error) {
+        console.error("Kino kanal info yangilashda xato:", error);
+        return false;
+    }
+};
+
 module.exports = {
     initMoviesTable,
     addMovie,
@@ -177,5 +195,6 @@ module.exports = {
     checkMovieByUniqueId,
     deleteMovie,
     updateMovie,
+    updateMovieChannelInfo,
     searchMoviesByName
 };

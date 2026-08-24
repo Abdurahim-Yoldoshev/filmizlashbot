@@ -23,6 +23,8 @@ const initSeriesTable = async () => {
         `);
         try { await db.execute(`ALTER TABLE episodes ADD COLUMN file_unique_id TEXT`); } catch (e) {}
         try { await db.execute(`ALTER TABLE series ADD COLUMN title TEXT`); } catch (e) {}
+        try { await db.execute(`ALTER TABLE series ADD COLUMN channel_file_id TEXT`); } catch (e) {}
+        try { await db.execute(`ALTER TABLE series ADD COLUMN channel_file_type TEXT`); } catch (e) {}
         console.log("Series modellari ishga tushdi.");
     } catch (error) {
         console.error("Series modeli xatosi:", error);
@@ -178,6 +180,22 @@ const searchSeriesByName = async (query) => {
     }
 };
 
+/**
+ * Serial uchun kanalga yuklangan xabar file_id va turini saqlash
+ */
+const updateSeriesChannelInfo = async (code, channel_file_id, channel_file_type) => {
+    try {
+        await db.execute({
+            sql: `UPDATE series SET channel_file_id = ?, channel_file_type = ? WHERE code = ?`,
+            args: [channel_file_id, channel_file_type, code]
+        });
+        return true;
+    } catch (error) {
+        console.error("Serial kanal info yangilashda xato:", error);
+        return false;
+    }
+};
+
 module.exports = {
     initSeriesTable,
     addSeries,
@@ -189,5 +207,6 @@ module.exports = {
     deleteSeries,
     deleteEpisode,
     updateSeries,
+    updateSeriesChannelInfo,
     searchSeriesByName
 };
