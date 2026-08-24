@@ -61,6 +61,6 @@ const dev = async () => {
             console.log("RENDER_EXTERNAL_URL topilmadi. Agar Render'da bo'lsangiz, bu o'zgaruvchini URLingiz bilan qo'shing.");
         }
     });
-};
+}
 
 dev();
