@@ -12,16 +12,22 @@ function cleanCaption(text) {
     if (!text) return '';
     let t = safeCaption(text);
 
-    // Eski olov sarlavhalarini olib tashlaymiz (🔥 YANGI KINO! 🔥 va o'xshashlari)
-    t = t.replace(/^[\u{1F525}\s]*(YANGI\s+KINO|YANGI\s+SERIAL)[\u{1F525}\s!]*\n*/gmu, '');
+    // Satrni qatorlarga ajratib, keraksizlarini olib tashlaymiz
+    const lines = t.split('\n');
+    const filtered = [];
+    for (const line of lines) {
+        const l = line.trim();
+        // Eski olov sarlavhalarini o'tkazib yuboramiz
+        if (l.includes('YANGI KINO') || l.includes('YANGI SERIAL')) continue;
+        // Kodi: X qatorini o'tkazib yuboramiz (bizning prefix qo'shadi)
+        if (/^[🎬📺]?\s*Kodi:\s*\d+\s*$/.test(l)) continue;
+        // Tomosha qilish tugmasi yozuvini o'tkazib yuboramiz
+        if (l.includes('Tomosha qilish uchun')) continue;
+        filtered.push(line);
+    }
 
-    // Boshidagi "🎬 Kodi: X" yoki "📺 Kodi: X" qatorini olib tashlaymiz (bizning prefix qo'shadi)
-    t = t.replace(/^[🎬📺]\s*Kodi:\s*\d+\s*\n*/gm, '');
-
-    // Oxiridagi "Tomosha qilish uchun..." yoki o'xshash yozuvni olib tashlaymiz (bizning suffix qo'shadi)
-    t = t.replace(/\n*[🎬📺]?\s*Tomosha qilish uchun[\s\S]*$/i, '');
-
-    return t.trim();
+    // Boshdagi va oxirdagi bo'sh qatorlarni olib tashlaymiz
+    return filtered.join('\n').trim();
 }
 
 
