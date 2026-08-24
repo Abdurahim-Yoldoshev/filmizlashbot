@@ -195,6 +195,8 @@ const updateSeriesChannelInfo = async (code, channel_file_id, channel_file_type)
         console.error("Serial kanal info yangilashda xato:", error);
         return false;
     }
+};
+
 const updateSeriesPosterUrl = async (code, poster_url) => {
     try {
         await db.execute({
