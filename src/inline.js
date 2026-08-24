@@ -73,16 +73,23 @@ bot.on('inline_query', async (query) => {
 
     console.log(`[Inline] "${queryText}" => ${results.length} natija | turlari: ${results.map(r => r.type).join(', ')}`);
 
-    // Avval barchasini yuborib ko'ramiz
+    // Telegram API inline query natijalari uchun 50 ta limit mavjud
+    const finalResults = results.slice(0, 50);
+
+    // Avval asosiy natijalarni yuborib ko'ramiz
     try {
-        await bot.answerInlineQuery(query.id, results, { cache_time: 0 });
+        await bot.answerInlineQuery(query.id, finalResults, { cache_time: 0 });
     } catch (firstErr) {
         const errMsg = firstErr.response ? JSON.stringify(firstErr.response.body) : firstErr.message;
         console.error('[Inline] 1-urinish xato:', errMsg);
 
-        // Xato bo'lsa barcha natijalarni article ga o'tkazib qayta urinib ko'ramiz
+        // Xato bo'lsa barcha natijalarni sof article (rasmsiz) ga o'tkazib qayta urinib ko'ramiz
         try {
-            const fallback = results.map(r => toArticle(r));
+            const fallback = finalResults.map(r => {
+                const article = toArticle(r);
+                delete article.thumbnail_url; // Webp yoki yaroqsiz rasm bo'lsa xato bermasligi uchun o'chiramiz
+                return article;
+            });
             await bot.answerInlineQuery(query.id, fallback, { cache_time: 0 });
             console.log('[Inline] Fallback article bilan muvaffaqiyatli yuborildi');
         } catch (secondErr) {
@@ -97,14 +104,12 @@ function toArticle(r) {
     const text = r.caption || r.input_message_content?.message_text || r.title || '';
     const article = {
         type: 'article',
-        id: r.id,
+        id: r.id + '_fallback',
         title: r.title || '',
         description: r.description || '',
         input_message_content: { message_text: text || r.title },
         reply_markup: r.reply_markup
     };
-    // thumbnail_url faqat http URL bo'lganda qo'shiladi
-    if (r.photo_url) article.thumbnail_url = r.photo_url;
     return article;
 }
 
@@ -124,18 +129,17 @@ function buildResult(item, type, botUsername) {
 
     const captionText = buildCaptionText(type, code, plain);
     const inline_keyboard = [[
-        { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
+        { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername || 'kino_bot'}?start=${code}` }
     ]];
 
-    // Avval asilmedia orqali topilgan poster_url, so'ng trailer_file_id (TMDb)
-    let imageUrl = item.poster_url || item.trailer_file_id;
-
-    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+    // 1-prioritet: HTTP orqali asilmedia rasmi (poster_url)
+    if (item.poster_url && item.poster_url.startsWith('http')) {
+        let pUrl = item.poster_url;
         return {
             type: 'photo',
-            id: `${type}_${code}`,
-            photo_url: imageUrl,
-            thumb_url: imageUrl,
+            id: `${type}_${code}_photo`,
+            photo_url: pUrl,
+            thumb_url: pUrl,
             title: `${icon} ${label}`,
             description: `Kod: ${code}`,
             caption: captionText.length > 1024 ? captionText.substring(0, 1020) + '...' : captionText,
@@ -143,20 +147,27 @@ function buildResult(item, type, botUsername) {
         };
     }
 
-    // Boshqa barcha hollarda article (thumbnail_url qo'shib)
-    const article = {
+    // 2-prioritet: Botdagi video/rasm fayl IDsidan foydalanish
+    if (item.trailer_file_id) {
+        // Agar trailer_file_id rasm bo'lsa (Buni aniqlash qiyin, lekin odatda video bo'ladi)
+        return {
+            type: 'cached_video',
+            id: `${type}_${code}_video`,
+            video_file_id: item.trailer_file_id,
+            title: `${icon} ${label}`,
+            description: `Kod: ${code}`,
+            caption: captionText.length > 1024 ? captionText.substring(0, 1020) + '...' : captionText,
+            reply_markup: { inline_keyboard }
+        };
+    }
+
+    // Boshqa barcha hollarda article (matn)
+    return {
         type: 'article',
-        id: `${type}_${code}`,
+        id: `${type}_${code}_article`,
         title: `${icon} ${label}`,
         description: `Kod: ${code} • Tomosha qilish uchun bosing`,
         input_message_content: { message_text: captionText },
         reply_markup: { inline_keyboard }
     };
-
-    // Agar HTTP URL mavjud bo'lsa thumbnail sifatida qo'shamiz
-    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-        article.thumbnail_url = imageUrl;
-    }
-
-    return article;
 }
