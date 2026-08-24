@@ -70,8 +70,17 @@ const start = async (msg) => {
 
       const startText = msg.text.split(' ');
       if (startText.length > 1 && !startText[1].startsWith('ref_')) {
-          // This is a movie code! Let's pass it to search
           const code = startText[1];
+          if (code === 'all') {
+              return bot.sendMessage(chatId, '🎬 <b>Barcha kinolar va seriallarni tomosha qilish uchun maxsus kanalimizga o\'ting:</b>', {
+                  parse_mode: 'HTML',
+                  reply_markup: {
+                      inline_keyboard: [[
+                          { text: '▶️ Kanalga o\'tish', url: `https://t.me/filmlarbuluti` }
+                      ]]
+                  }
+              });
+          }
           // Mock the text property so handleSearch can read it
           msg.text = code;
           const { handleSearch } = require('./search');

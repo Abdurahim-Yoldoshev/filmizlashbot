@@ -86,12 +86,12 @@ bot.on('inline_query', async (query) => {
         const defaultResult = [{
             type: 'article',
             id: 'default_search',
-            title: '🔍 Kino yoki serial izlash...',
-            description: "Qidirish uchun kino kodi yoki nomini yozing",
-            input_message_content: { message_text: '🎬 Barcha kinolarni bot ichidan qidirishingiz mumkin.' },
+            title: '🎬 Barcha kinolarni ko\'rish',
+            description: "@filmlarbuluti kanaliga o'tish uchun bosing",
+            input_message_content: { message_text: '🎬 Barcha kinolar va seriallarni maxsus kanalimizdan topishingiz va tomosha qilishingiz mumkin!' },
             reply_markup: {
                 inline_keyboard: [[
-                    { text: '▶️ Botga o\'tish', url: `https://t.me/${botUsername}` }
+                    { text: '▶️ Kanalga o\'tish', url: `https://t.me/filmlarbuluti` }
                 ]]
             }
         }];
