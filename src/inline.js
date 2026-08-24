@@ -13,6 +13,8 @@ function safeCaption(itemCaption) {
     return stripped;
 }
 
+let cachedBotUsername = null;
+
 bot.on('inline_query', async (query) => {
     const text = query.query.trim();
     if (!text) {
@@ -34,8 +36,11 @@ bot.on('inline_query', async (query) => {
         seriesList = await searchSeriesByName(text);
     }
 
-    const botInfo = await bot.getMe();
-    const botUsername = botInfo.username;
+    if (!cachedBotUsername) {
+        const botInfo = await bot.getMe();
+        cachedBotUsername = botInfo.username;
+    }
+    const botUsername = cachedBotUsername;
 
     const processItem = async (item, type) => {
         let captionText = '';
