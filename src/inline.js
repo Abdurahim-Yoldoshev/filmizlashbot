@@ -83,9 +83,12 @@ bot.on('inline_query', async (query) => {
     };
 
     if (!queryText) {
-        const defaultResult = [{
+        const results = [];
+
+        // 1. Kanal reklamasi (Article)
+        results.push({
             type: 'article',
-            id: 'default_search',
+            id: 'channel_promo',
             title: '🎬 Barcha kinolarni ko\'rish',
             description: "@filmlarbuluti kanaliga o'tish uchun bosing",
             input_message_content: { message_text: '🎬 Barcha kinolar va seriallarni maxsus kanalimizdan topishingiz va tomosha qilishingiz mumkin!' },
@@ -94,8 +97,31 @@ bot.on('inline_query', async (query) => {
                     { text: '▶️ Kanalga o\'tish', url: `https://t.me/filmlarbuluti` }
                 ]]
             }
-        }];
-        return bot.answerInlineQuery(query.id, defaultResult, inlineOptions).catch(() => {});
+        });
+
+        // 2. Test ovozli xabarlar (Voice)
+        const voiceList = [
+            { id: 'v1', title: "Qotodi yepsan" },
+            { id: 'v2', title: "Ukajonim mexribonim 😂" },
+            { id: 'v3', title: "Qo'zivoy 🤣" },
+            { id: 'v4', title: "Buvini ami 😂" },
+            { id: 'v5', title: "Ye og'zinga qotag'im 🤣" },
+            { id: 'v6', title: "Dadenman 😂" },
+            { id: 'v7', title: "Jalabla bomi 😂" }
+        ];
+
+        const sampleVoiceUrl = 'https://upload.wikimedia.org/wikipedia/commons/c/c8/Example.ogg';
+
+        voiceList.forEach(item => {
+            results.push({
+                type: 'voice',
+                id: item.id,
+                title: item.title,
+                voice_url: sampleVoiceUrl // Haqiqiy file_id yo'qligi uchun test URL
+            });
+        });
+
+        return bot.answerInlineQuery(query.id, results, inlineOptions).catch(() => {});
     }
 
     let movies = [];
