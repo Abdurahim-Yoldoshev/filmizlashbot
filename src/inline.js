@@ -2,17 +2,20 @@ const bot = require('./bot');
 const { searchMoviesByName, getMovie } = require('../base/models/movies.model');
 const { searchSeriesByName, getSeries } = require('../base/models/series.model');
 
-// Inline cached_* uchun: max 1024 char, HTML tegsiz, 900 dan oshmasin
-function buildCaption(prefix, plain, suffix) {
-    const maxLen = 900;
-    const truncated = plain.length > maxLen ? plain.substring(0, maxLen) + '...' : plain;
-    const full = `${prefix}${truncated}${suffix}`;
-    return full.length > 1024 ? full.substring(0, 1020) + '...' : full;
-}
-
 function safeCaption(text) {
     if (!text) return '';
     return text.replace(/<[^>]*>/gm, '').trim();
+}
+
+function buildCaptionText(type, code, plain) {
+    const prefix = type === 'movie'
+        ? `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n`
+        : `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n`;
+    const suffix = type === 'movie'
+        ? `\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`
+        : `\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
+    const full = prefix + plain + suffix;
+    return full.length > 4000 ? full.substring(0, 3990) + '...' : full;
 }
 
 let cachedBotUsername = null;
@@ -57,26 +60,53 @@ bot.on('inline_query', async (query) => {
         try {
             results.push(buildResult(item, 'movie', botUsername));
         } catch (e) {
-            console.error(`[Inline] movie ${item.code} buildResult xato:`, e.message);
+            console.error(`[Inline] movie ${item.code} xato:`, e.message);
         }
     }
     for (const item of seriesList) {
         try {
             results.push(buildResult(item, 'series', botUsername));
         } catch (e) {
-            console.error(`[Inline] series ${item.code} buildResult xato:`, e.message);
+            console.error(`[Inline] series ${item.code} xato:`, e.message);
         }
     }
 
-    console.log(`[Inline] "${queryText}" => ${results.length} natija (${movies.length} kino, ${seriesList.length} serial)`);
-    console.log('[Inline] Natija turlari:', results.map(r => `${r.type}(${r.id})`).join(', '));
+    console.log(`[Inline] "${queryText}" => ${results.length} natija | turlari: ${results.map(r => r.type).join(', ')}`);
 
-    bot.answerInlineQuery(query.id, results, { cache_time: 0 })
-        .catch(e => {
-            const desc = e.response ? JSON.stringify(e.response.body) : e.message;
-            console.error('[Inline] answerInlineQuery xato:', desc);
-        });
+    // Avval barchasini yuborib ko'ramiz
+    try {
+        await bot.answerInlineQuery(query.id, results, { cache_time: 0 });
+    } catch (firstErr) {
+        const errMsg = firstErr.response ? JSON.stringify(firstErr.response.body) : firstErr.message;
+        console.error('[Inline] 1-urinish xato:', errMsg);
+
+        // Xato bo'lsa barcha natijalarni article ga o'tkazib qayta urinib ko'ramiz
+        try {
+            const fallback = results.map(r => toArticle(r));
+            await bot.answerInlineQuery(query.id, fallback, { cache_time: 0 });
+            console.log('[Inline] Fallback article bilan muvaffaqiyatli yuborildi');
+        } catch (secondErr) {
+            console.error('[Inline] 2-urinish ham xato:', secondErr.message);
+        }
+    }
 });
+
+// Har qanday natijani article ga o'tkazish (fallback)
+function toArticle(r) {
+    if (r.type === 'article') return r;
+    const text = r.caption || r.input_message_content?.message_text || r.title || '';
+    const article = {
+        type: 'article',
+        id: r.id,
+        title: r.title || '',
+        description: r.description || '',
+        input_message_content: { message_text: text || r.title },
+        reply_markup: r.reply_markup
+    };
+    // thumbnail_url faqat http URL bo'lganda qo'shiladi
+    if (r.photo_url) article.thumbnail_url = r.photo_url;
+    return article;
+}
 
 function buildResult(item, type, botUsername) {
     const code = item.code;
@@ -84,62 +114,22 @@ function buildResult(item, type, botUsername) {
     const icon = type === 'movie' ? '🎬' : '📺';
 
     let label = '';
-    let prefixText = '';
-    let suffixText = '';
-
     if (type === 'movie') {
         const m = item.caption ? item.caption.match(/Kino nomi:\s*(.+)/) : null;
         label = item.title || (m ? m[1].trim() : `Kino ${code}`);
-        prefixText = `🔥 YANGI KINO! 🔥\n\n🎬 Kodi: ${code}\n\n`;
-        suffixText = `\n\n🎬 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
     } else {
         const m = item.caption ? item.caption.match(/Serial nomi:\s*(.+)/) : null;
         label = item.title || (m ? m[1].trim() : `Serial ${code}`);
-        prefixText = `🔥 YANGI SERIAL! 🔥\n\n📺 Kodi: ${code}\n\n`;
-        suffixText = `\n\n📺 Tomosha qilish uchun quyidagi tugmani bosing 👇`;
     }
 
-    const captionText = buildCaption(prefixText, plain, suffixText);
-
+    const captionText = buildCaptionText(type, code, plain);
     const inline_keyboard = [[
         { text: '▶️ Tomosha qilish', url: `https://t.me/${botUsername}?start=${code}` }
     ]];
 
-    // 1-ustuvorlik: kanalga yuborilganda saqlangan aniq file_id va turi
-    const channelFileId = item.channel_file_id;
-    const channelFileType = item.channel_file_type;
-
-    if (channelFileId && channelFileType) {
-        console.log(`[Inline] ${type} ${code}: channel_file_type="${channelFileType}", caption=${captionText.length} chars`);
-
-        if (channelFileType === 'photo') {
-            return {
-                type: 'cached_photo',
-                id: `${type}_${code}`,
-                photo_file_id: channelFileId,
-                title: `${icon} ${label}`,
-                description: `Kod: ${code}`,
-                caption: captionText,
-                reply_markup: { inline_keyboard }
-            };
-        }
-
-        if (channelFileType === 'video') {
-            return {
-                type: 'cached_video',
-                id: `${type}_${code}`,
-                video_file_id: channelFileId,
-                title: `${icon} ${label}`,
-                description: `Kod: ${code}`,
-                caption: captionText,
-                reply_markup: { inline_keyboard }
-            };
-        }
-    }
-
-    // 2-ustuvorlik: trailer_file_id HTTP URL bo'lsa (TMDb poster)
+    // trailer_file_id HTTP URL (TMDb poster) bo'lsa — photo tipida
     const trailerFileId = item.trailer_file_id;
-    if (trailerFileId && trailerFileId.startsWith('http')) {
+    if (trailerFileId && typeof trailerFileId === 'string' && trailerFileId.startsWith('http')) {
         return {
             type: 'photo',
             id: `${type}_${code}`,
@@ -147,20 +137,25 @@ function buildResult(item, type, botUsername) {
             thumb_url: trailerFileId,
             title: `${icon} ${label}`,
             description: `Kod: ${code}`,
-            caption: captionText,
+            caption: captionText.length > 1024 ? captionText.substring(0, 1020) + '...' : captionText,
             reply_markup: { inline_keyboard }
         };
     }
 
-    // Fallback: article (har doim ishlaydi)
-    return {
+    // Boshqa barcha hollarda article (thumbnail_url qo'shib)
+    const article = {
         type: 'article',
         id: `${type}_${code}`,
         title: `${icon} ${label}`,
         description: `Kod: ${code} • Tomosha qilish uchun bosing`,
-        input_message_content: {
-            message_text: captionText
-        },
+        input_message_content: { message_text: captionText },
         reply_markup: { inline_keyboard }
     };
+
+    // Agar HTTP URL treyler bo'lsa thumbnail sifatida qo'shamiz
+    if (trailerFileId && typeof trailerFileId === 'string' && trailerFileId.startsWith('http')) {
+        article.thumbnail_url = trailerFileId;
+    }
+
+    return article;
 }
