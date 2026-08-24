@@ -62,6 +62,6 @@ const dev = async () => {
     app.get('/', (req, res) => {
         res.send('Bot is running!');
     });
-}
+};
 
 dev();
