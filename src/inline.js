@@ -7,6 +7,24 @@ function safeCaption(text) {
     return text.replace(/<[^>]*>/gm, '').trim();
 }
 
+// Bazadagi eski sarlavha, kod va tugma yozuvlarini olib tashlaydi
+function cleanCaption(text) {
+    if (!text) return '';
+    let t = safeCaption(text);
+
+    // Eski olov sarlavhalarini olib tashlaymiz (🔥 YANGI KINO! 🔥 va o'xshashlari)
+    t = t.replace(/^[\u{1F525}\s]*(YANGI\s+KINO|YANGI\s+SERIAL)[\u{1F525}\s!]*\n*/gmu, '');
+
+    // Boshidagi "🎬 Kodi: X" yoki "📺 Kodi: X" qatorini olib tashlaymiz (bizning prefix qo'shadi)
+    t = t.replace(/^[🎬📺]\s*Kodi:\s*\d+\s*\n*/gm, '');
+
+    // Oxiridagi "Tomosha qilish uchun..." yoki o'xshash yozuvni olib tashlaymiz (bizning suffix qo'shadi)
+    t = t.replace(/\n*[🎬📺]?\s*Tomosha qilish uchun[\s\S]*$/i, '');
+
+    return t.trim();
+}
+
+
 // "Treller" so'zini o'rtada joylashtirib, 👉👈 bilan to'ldiradi
 // Telegram xabar kengligiga moslashtirilgan (taxminan 32 ta belgi)
 function buildTrellerHeader() {
@@ -131,7 +149,7 @@ function toArticle(r) {
 
 function buildResult(item, type, botUsername) {
     const code = item.code;
-    const plain = safeCaption(item.caption);
+    const plain = cleanCaption(item.caption);
     const icon = type === 'movie' ? '🎬' : '📺';
 
     let label = '';
