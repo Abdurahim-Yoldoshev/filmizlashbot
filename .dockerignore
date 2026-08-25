@@ -1,0 +1,28 @@
+﻿# Muhit o'zgaruvchilari — HECH QACHON konteynerlarga tushmasligi kerak
+.env
+.env.*
+!.env.example
+
+# Git va IDE fayllari
+.git
+.gitignore
+.gitattributes
+.DS_Store
+*.log
+
+# Node modullar (Dockerfile ichida o'rnatiladi)
+node_modules/
+
+# Test fayllari
+test_*.js
+*.test.js
+*.spec.js
+
+# README va litsenziya
+README.md
+LICENSE
+
+# Docker o'zi
+Dockerfile
+docker-compose.yml
+.dockerignore
